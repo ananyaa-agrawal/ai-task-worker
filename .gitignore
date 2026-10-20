@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+runs/
+memory/
+workspace/downloads/*
+!workspace/downloads/.gitkeep
+workspace/outputs/*
+!workspace/outputs/.gitkeep
+.DS_Store
+.claude/

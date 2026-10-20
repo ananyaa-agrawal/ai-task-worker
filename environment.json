@@ -1,0 +1,23 @@
+{
+  "organization": "Acme Robotics Pvt Ltd (Pune, India)",
+  "worker_role": "Accounts payable and finance operations assistant",
+  "applications": [
+    {
+      "name": "Mailroom",
+      "url": "/mail",
+      "description": "The accounts payable mailbox ap@acme-robotics.example. Vendor invoices arrive here as PDF attachments."
+    },
+    {
+      "name": "LedgerLite AP",
+      "url": "/erp/invoices",
+      "description": "System of record for vendor invoices, payments and vendor master data.",
+      "secrets": ["ledgerlite.username", "ledgerlite.password"]
+    },
+    {
+      "name": "Teamspace",
+      "url": "/chat/c/finance",
+      "description": "Team chat. #finance is the finance team's channel; #general is company-wide."
+    }
+  ],
+  "workspace": "A local folder: shared/ holds company documents, downloads/ receives browser downloads, outputs/ is for files you produce."
+}

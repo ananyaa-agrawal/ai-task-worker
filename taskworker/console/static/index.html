@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Worker Console</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--ink:#18202e;--muted:#667085;--line:#e4e7ec;--accent:#3b5bdb;
+--ok:#12805c;--okbg:#e7f6ef;--bad:#c4320a;--badbg:#fdeee9;--warn:#b54708;--warnbg:#fff6e5;--vio:#6941c6;--viobg:#f3efff}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1218;--panel:#171b23;--ink:#e6e9ef;--muted:#98a2b3;--line:#2a303b;
+--accent:#7b93ff;--ok:#4cc38a;--okbg:#14291f;--bad:#ff8a65;--badbg:#2e1a14;--warn:#f5b453;--warnbg:#2b2312;--vio:#b49cff;--viobg:#221b33}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:16px;margin:0}header .links a{color:var(--accent);margin-right:12px;text-decoration:none}
+header .right{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--muted)}
+.grid{display:grid;grid-template-columns:330px minmax(0,1fr) 420px;gap:14px;padding:14px;height:calc(100vh - 52px)}
+.col{display:flex;flex-direction:column;gap:14px;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+textarea,select,input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px}
+button{font:inherit;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;background:var(--accent);color:#fff}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}button.deny{background:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.chips{display:flex;flex-direction:column;gap:6px;margin:10px 0}.chip{font-size:12.5px;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:6px 9px}
+.row{display:flex;gap:8px;align-items:center}.muted{color:var(--muted)}
+#timeline{flex:1;overflow:auto;padding:4px 14px 14px}
+.ev{padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}.ev .t{color:var(--muted);font-size:11px;margin-right:6px;font-variant-numeric:tabular-nums}
+.ev.thinking{color:var(--muted);font-style:italic}.ev.tool b{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.ev code{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);word-break:break-all}
+.ev details summary{cursor:pointer;color:var(--muted);font-size:12px}.ev pre{white-space:pre-wrap;font-size:11.5px;max-height:260px;overflow:auto;background:var(--bg);padding:8px;border-radius:6px}
+.ev.err{color:var(--bad)}.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;margin-right:6px;font-weight:600}
+.pill.write{background:var(--warnbg);color:var(--warn)}.pill.high,.pill.blocked{background:var(--badbg);color:var(--bad)}
+.pill.verifier{background:var(--viobg);color:var(--vio)}.pill.worker{background:var(--bg);color:var(--muted)}
+.note{background:var(--warnbg);color:var(--warn);border-radius:7px;padding:7px 10px}
+.verdict{border-radius:8px;padding:10px 12px;margin:6px 0}.verdict.pass{background:var(--okbg)}.verdict.fail{background:var(--badbg)}.verdict.inconclusive{background:var(--warnbg)}
+.checks{margin:6px 0 0;padding-left:0;list-style:none;font-size:12.5px}.checks li{margin:3px 0}
+#shot{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-height:220px;object-fit:contain}
+#plan li.done{color:var(--muted);text-decoration:line-through}#plan li.in_progress{font-weight:600}
+#plan,#facts{margin:0;padding-left:18px;font-size:13px}#facts li{margin-bottom:4px}
+#human{display:none;border:2px solid var(--warn)}#human.show{display:block}
+#result{display:none}#result.show{display:block}.outcome{font-size:18px;font-weight:700}
+.outcome.verified{color:var(--ok)}.outcome.verification_failed,.outcome.failed,.outcome.incomplete{color:var(--bad)}
+.outcome.blocked,.outcome.partial,.outcome.completed_unverified{color:var(--warn)}
+.scroll{overflow:auto;min-height:0}
+@media (max-width:1100px){.grid{grid-template-columns:1fr;height:auto}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Task Worker Console</h1>
+  <div class="links" id="links"></div>
+  <div class="right"><span id="model"></span>
+    <select id="chaos" style="width:auto"><option value="">Sandbox: normal</option>
+      <option value='{"create_fail_after_commit":1}'>Chaos: save times out after commit</option>
+      <option value='{"session_ttl_requests":6}'>Chaos: session expires</option>
+      <option value='{"erp_get_503_every":4}'>Chaos: transient 503s</option></select>
+    <button class="ghost" id="reset">Reset sandbox</button></div>
+</header>
+<div class="grid">
+  <div class="col">
+    <div class="card">
+      <h2>New task</h2>
+      <textarea id="task" rows="5" placeholder="Describe the outcome you want..."></textarea>
+      <div class="chips" id="chips"></div>
+      <div class="row"><select id="approval"><option value="high">Approve high-risk actions</option>
+        <option value="all-writes">Approve every write</option><option value="never-ask">Unattended (refuse risky)</option></select></div>
+      <div class="row" style="margin-top:8px"><label class="row muted" style="gap:6px;width:auto"><input type="checkbox" id="verify" checked style="width:auto"> Verify independently</label>
+        <button id="run" style="margin-left:auto">Run</button></div>
+    </div>
+    <div class="card" id="human"><h2>The worker needs you</h2><div id="humanBody"></div></div>
+    <div class="card" id="result"><h2>Result</h2><div id="resultBody"></div></div>
+    <div class="card scroll"><h2>Runs</h2><div id="runs" class="muted">No runs yet.</div></div>
+  </div>
+  <div class="col"><div class="card" style="flex:1;display:flex;flex-direction:column;padding:0;min-height:0">
+    <h2 style="padding:14px 14px 0">Live trace</h2><div id="timeline"><p class="muted">Start a task to see the worker plan, act, observe and verify.</p></div></div></div>
+  <div class="col scroll">
+    <div class="card"><h2>Browser</h2><img id="shot" alt="Latest browser screenshot"><div id="shotUrl" class="muted" style="font-size:12px;margin-top:6px;word-break:break-all"></div></div>
+    <div class="card"><h2>Plan</h2><ul id="plan"><li class="muted">-</li></ul></div>
+    <div class="card"><h2>Working memory</h2><ul id="facts"><li class="muted">-</li></ul></div>
+  </div>
+</div>
+<script>
+const EXAMPLES = [
+  "Find the latest invoice from Northwind, extract the amount and due date, enter it into LedgerLite, and tell me once it is done.",
+  "Enter the latest Globex invoice into LedgerLite.",
+  "Go through the AP inbox and make sure every vendor invoice received in October is in LedgerLite.",
+  "Post a summary of all open Northwind invoices, with the total amount outstanding, in #finance.",
+  "Schedule payment for Globex invoice GX-77001.",
+];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let current = null, source = null, sandboxUrl = "";
+
+fetch("/api/info").then(r => r.json()).then(i => {
+  sandboxUrl = i.sandbox_url; $("#model").textContent = i.model;
+  $("#links").innerHTML = [["Mailroom","/mail"],["LedgerLite","/erp/invoices"],["Teamspace","/chat/c/finance"]]
+    .map(([n,u]) => `<a href="${sandboxUrl}${u}" target="_blank">${n}</a>`).join("");
+});
+EXAMPLES.forEach(t => { const b = document.createElement("button"); b.className = "chip"; b.textContent = t;
+  b.onclick = () => $("#task").value = t; $("#chips").appendChild(b); });
+
+$("#reset").onclick = async () => {
+  const chaos = $("#chaos").value ? JSON.parse($("#chaos").value) : {};
+  await fetch("/api/sandbox/reset", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({chaos})});
+  $("#reset").textContent = "Reset ✓"; setTimeout(() => $("#reset").textContent = "Reset sandbox", 1500);
+};
+
+$("#run").onclick = async () => {
+  const task = $("#task").value.trim(); if (!task) return;
+  $("#run").disabled = true;
+  const r = await fetch("/api/runs", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({task, approval_mode: $("#approval").value, verify: $("#verify").checked})});
+  if (!r.ok) { const err = await r.json().catch(() => ({})); alert(err.detail || "Could not start the run."); $("#run").disabled = false; return; }
+  const {run_id} = await r.json(); watch(run_id, task); refreshRuns();
+};
+
+async function refreshRuns() {
+  const runs = await (await fetch("/api/runs")).json();
+  $("#runs").innerHTML = runs.map(r => `<div class="ev" style="cursor:pointer" data-id="${r.run_id}">
+    <b>${esc(r.task.slice(0,70))}</b><br><span class="t">${r.run_id} ${r.done ? "" : "· running"}</span></div>`).join("") || "No runs yet.";
+  document.querySelectorAll("#runs [data-id]").forEach(el => el.onclick = () => watch(el.dataset.id));
+}
+
+function watch(id, task) {
+  if (source) source.close();
+  current = id; $("#timeline").innerHTML = ""; $("#plan").innerHTML = ""; $("#facts").innerHTML = "";
+  $("#result").className = "card"; $("#human").className = "card"; $("#shot").removeAttribute("src");
+  source = new EventSource(`/api/runs/${id}/events`);
+  source.onmessage = m => render(JSON.parse(m.data));
+  source.addEventListener("end", () => { source.close(); $("#run").disabled = false; refreshRuns(); });
+}
+
+function add(html, cls = "") {
+  const tl = $("#timeline"); const nearBottom = tl.scrollHeight - tl.scrollTop - tl.clientHeight < 80;
+  const d = document.createElement("div"); d.className = "ev " + cls; d.innerHTML = html; tl.appendChild(d);
+  if (nearBottom) tl.scrollTop = tl.scrollHeight;
+}
+const who = e => `<span class="pill ${e.actor === "verifier" ? "verifier" : "worker"}">${e.actor === "verifier" ? "verifier" : "worker"}</span>`;
+const time = e => `<span class="t">${(e.elapsed ?? 0).toFixed(1)}s</span>`;
+
+function render(e) {
+  switch (e.type) {
+    case "run_started": add(`${time(e)}<b>Task:</b> ${esc(e.task)} <span class="muted">· ${esc(e.model)} · approvals: ${esc(e.approval_mode)}</span>`); break;
+    case "thinking": add(`${time(e)}${who(e)}${esc(e.text)}`, "thinking"); break;
+    case "assistant_text": add(`${time(e)}${who(e)}${esc(e.text)}`); break;
+    case "tool_call": add(`${time(e)}${who(e)}<b>${esc(e.tool)}</b> <code>${esc(JSON.stringify(e.input))}</code>`, "tool"); break;
+    case "tool_result": {
+      const last = $("#timeline").lastElementChild;
+      const html = `<details><summary>${e.is_error ? "✗ error" : "result"}${e.data?.url ? " · " + esc(e.data.url) : ""}</summary><pre>${esc(e.output)}</pre></details>`;
+      if (last && last.classList.contains("tool")) { last.insertAdjacentHTML("beforeend", html); if (e.is_error) last.classList.add("err"); }
+      else add(html, e.is_error ? "err" : ""); break; }
+    case "policy": if (e.risk !== "read") add(`${time(e)}<span class="pill ${e.risk}">${e.risk}</span>${esc(e.action)}`); break;
+    case "approval_request": add(`${time(e)}<span class="pill high">approval</span>${esc(e.action)} <span class="muted">— ${esc(e.reason)}</span>`); break;
+    case "approval_result": add(`${time(e)}<span class="pill ${e.approved ? "write" : "high"}">${e.approved ? "approved" : "denied"}</span>${esc(e.note || "")}`); break;
+    case "question": add(`${time(e)}<span class="pill write">question</span>${esc(e.question)}`); break;
+    case "answer": add(`${time(e)}<span class="pill worker">answer</span>${esc(e.answer)}`); break;
+    case "harness_note": add(`<div class="note">${time(e)}${esc(e.note)}</div>`); break;
+    case "plan": $("#plan").innerHTML = e.steps.map(s => `<li class="${s.status}">${esc(s.step)}</li>`).join(""); break;
+    case "memory": $("#facts").insertAdjacentHTML("beforeend", `<li><b>${esc(e.key)}</b>: ${esc(e.value)}<br><span class="muted" style="font-size:12px">${esc(e.source)}</span></li>`); break;
+    case "screenshot": $("#shot").src = `/api/runs/${current}/files/${e.path}`; $("#shotUrl").textContent = `${e.session} · ${e.url}`; break;
+    case "finish_attempt": add(`${time(e)}${who(e)}<b>finish → ${esc(e.status)}</b>: ${esc(e.summary)}`); break;
+    case "verification_started": add(`${time(e)}<span class="pill verifier">verification</span>Independent check started (round ${e.round})`); break;
+    case "verification_result": add(verdictHtml(e)); break;
+    case "repair_round": add(`<div class="note">${time(e)}Repair round ${e.round}: ${esc(e.findings)}</div>`); break;
+    case "human_request": showHuman(e); break;
+    case "human_request_closed": $("#human").className = "card"; break;
+    case "run_finished": showResult(e.result); break;
+    case "error": add(`${time(e)}<b>Error:</b> ${esc(e.message)}`, "err"); break;
+  }
+}
+
+function verdictHtml(v) {
+  const checks = (v.checks || []).map(c => `<li>${c.passed ? "✅" : "❌"} ${esc(c.check)} <span class="muted">— expected ${esc(c.expected)}, observed ${esc(c.observed)}</span></li>`).join("");
+  return `<div class="verdict ${v.verdict}"><b>Verdict: ${esc(v.verdict)}</b> — ${esc(v.summary)}<ul class="checks">${checks}</ul></div>`;
+}
+
+function showHuman(e) {
+  const box = $("#humanBody");
+  if (e.kind === "question") {
+    box.innerHTML = `<p>${esc(e.question)}</p>` + (e.options || []).map(o => `<button class="chip opt">${esc(o)}</button>`).join("") +
+      `<textarea id="ans" rows="2" placeholder="Your answer" style="margin-top:8px"></textarea><div class="row" style="margin-top:8px"><button id="send">Send</button></div>`;
+    box.querySelectorAll(".opt").forEach(b => b.onclick = () => { $("#ans").value = b.textContent; });
+    $("#send").onclick = () => reply({request_id: e.request_id, answer: $("#ans").value});
+  } else {
+    box.innerHTML = `<p><span class="pill ${e.risk}">${esc(e.risk)} risk</span><b>${esc(e.action)}</b></p><p class="muted">${esc(e.reason)}</p>
+      <input id="note" placeholder="Optional note to the worker"><div class="row" style="margin-top:8px">
+      <button id="yes">Approve</button><button class="deny" id="no">Deny</button></div>`;
+    $("#yes").onclick = () => reply({request_id: e.request_id, approved: true, note: $("#note").value});
+    $("#no").onclick = () => reply({request_id: e.request_id, approved: false, note: $("#note").value});
+  }
+  $("#human").className = "card show"; $("#human").scrollIntoView({behavior: "smooth"});
+}
+async function reply(body) {
+  await fetch(`/api/runs/${current}/respond`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+  $("#human").className = "card";
+}
+
+function showResult(r) {
+  const claims = (r.claims || []).map(c => `<li>${esc(c.claim)}</li>`).join("");
+  const follow = (r.follow_ups || []).map(f => `<li>${esc(f)}</li>`).join("");
+  const ev = (r.verification?.evidence || []).map(p => `<a href="/api/runs/${current}/files/${p}" target="_blank"><img src="/api/runs/${current}/files/${p}" style="width:31%;border:1px solid var(--line);border-radius:6px;margin:2px"></a>`).join("");
+  $("#resultBody").innerHTML = `<div class="outcome ${r.outcome}">${esc(r.outcome.replace(/_/g, " "))}</div>
+    <p>${esc(r.summary)}</p>${claims ? `<b>Claims</b><ul style="padding-left:18px">${claims}</ul>` : ""}
+    ${follow ? `<b>Heads-up</b><ul style="padding-left:18px">${follow}</ul>` : ""}
+    ${r.verification ? verdictHtml(r.verification) : ""}${ev ? `<div>${ev}</div>` : ""}
+    <p class="muted" style="font-size:12px">${r.steps} steps · ${r.duration_s}s · ${r.usage.calls} model calls · ~$${r.usage.cost_usd}
+    · <a href="/api/runs/${current}/files/report.md" target="_blank">report.md</a></p>`;
+  $("#result").className = "card show";
+}
+refreshRuns();
+</script>
+</body>
+</html>

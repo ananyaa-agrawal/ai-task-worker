@@ -1,0 +1,11 @@
+anthropic>=1.15
+playwright>=1.64
+fastapi>=0.146
+uvicorn[standard]>=0.54
+python-multipart>=0.0.32
+pypdf>=6.0
+fpdf2>=2.8
+pyyaml>=6.0
+rich>=15.0
+httpx>=0.28
+pytest>=9.0

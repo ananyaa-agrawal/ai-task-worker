@@ -1,0 +1,22 @@
+[project]
+name = "taskworker"
+version = "0.1.0"
+description = "Autonomous AI task worker: plans, acts in a browser, verifies, and asks for help when it should."
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=1.15", "playwright>=1.64", "fastapi>=0.146", "uvicorn[standard]>=0.54",
+  "python-multipart>=0.0.32", "pypdf>=6.0", "fpdf2>=2.8", "pyyaml>=6.0", "rich>=15.0", "httpx>=0.28",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["taskworker*"]
+
+[tool.setuptools.package-data]
+taskworker = ["tools/snapshot.js", "console/static/*"]
